@@ -65,11 +65,26 @@ class OSRSMC_OT_Load_Model(Operator, ImportHelper):
     def execute(self, context):
         bpy.ops.import_scene.obj(filepath = self.filepath)
         return { "FINISHED" }
+    
+class OSRSMC_OT_Merge_Materials(Operator):
+    bl_idname = "object.merge_materials"
+    bl_label = "Merge Materials"
+    def execute(self, context):
+        if not context.scene.osrs_model:
+            self.report({"ERROR"}, "Please select an OSRS Model")
+            return {"CANCELLED"}
+        mesh = context.scene.osrs_model.data
+        print(mesh)
+        return { "FINISHED" }
+    
+    
+    
 
 classes = (
     OSRSMC_PT_Panel_Load_Model,
     OSRSMC_PT_Panel_Merge_Materials,
-    OSRSMC_OT_Load_Model
+    OSRSMC_OT_Load_Model,
+    OSRSMC_OT_Merge_Materials
 )
 
 props = [
