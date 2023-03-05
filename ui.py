@@ -1,6 +1,6 @@
 import bpy
 
-from bpy.types import Panel
+from bpy.types import Panel, UIList
 
 
 class OSRSMC_PT_Panel:
@@ -19,6 +19,8 @@ class OSRSMC_PT_Panel_Load_Model(OSRSMC_PT_Panel, Panel):
         row = layout.row()
         col = row.column()
         col.operator("object.load_model", text="Load Model", icon="FILE")
+        col.prop_search(bpy.context.scene, "osrs_model",
+                bpy.context.scene, "objects", icon="OBJECT_DATA")
 
 
 class OSRSMC_PT_Panel_Merge_Materials(OSRSMC_PT_Panel, Panel):
@@ -29,7 +31,18 @@ class OSRSMC_PT_Panel_Merge_Materials(OSRSMC_PT_Panel, Panel):
         layout = self.layout
         row = layout.row()
         col = row.column()
-        col.prop_search(bpy.context.scene, "osrs_model",
-                        bpy.context.scene, "objects", icon="OBJECT_DATA")
         col.operator("object.merge_materials",
                      text="Merge Materials", icon="RNDCURVE")
+        row.prop(context.scene, "max_n_clusters")
+        
+
+class OSRSMC_UL_Materials_List(UIList):
+    def draw_item(self, context, layout, data, item, icon, active_data, active_propname):
+        if self.layout_type in {"DEFAULT", "COMPACT"}:
+            row = layout.row()
+            row.prop(item.material_ptr, "name", text="", emboss=False, icon_value=layout.icon(item.material_ptr))
+        elif self.layout_type in {"GRID"}:
+            layout.alignment = "CENTER"
+            layout.prop(item.material_ptr, "name", text="", emboss=False, icon_value=layout.icon(item.material_ptr))
+        
+        

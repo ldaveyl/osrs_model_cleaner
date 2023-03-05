@@ -1,49 +1,56 @@
-# https://github.com/luckychris/install_blender_python_modules
-import sys
-import subprocess
-import os
-import platform
-import bpy
+# ----------------------------------------------
+# KMeans clustering
+# https://towardsdatascience.com/create-your-own-k-means-clustering-algorithm-in-python-d7d4c9077670
+# ----------------------------------------------
 
+import numpy as np
+from random import choice
 
-def isWindows():
-    return os.name == 'nt'
+def euclidean(point, data):
+    return np.sqrt(np.sum((point - data)**2, axis=1))
 
+class KMeans:
+    def __init__(self, n_clusters=8, max_iter=300):
+        self.n_clusters = n_clusters
+        self.max_iter = max_iter
+        
+    def fit(self, X_train):
+        # Initialize the centroids, using the "k-means++" method, where a random datapoint is selected as the first,
+        # then the rest are initialized w/ probabilities proportional to their distances to the first
+        # Pick a random point from train data for first centroid
+        self.centroids = [choice(X_train)]
+        for _ in range(self.n_clusters-1):
+            # Calculate distances from points to the centroids
+            dists = np.sum([euclidean(centroid, X_train) for centroid in self.centroids], axis=0)
+            # Normalize the distances
+            dists /= np.sum(dists)
+            # Choose remaining points based on their distances
+            new_centroid_idx, = np.random.choice(range(len(X_train)), size=1, p=dists)
+            self.centroids += [X_train[new_centroid_idx]]
+        # Iterate, adjusting centroids until converged or until passed max_iter
+        iteration = 0
+        prev_centroids = None
+        while np.not_equal(self.centroids, prev_centroids).any() and iteration < self.max_iter:
+            # Sort each datapoint, assigning to nearest centroid
+            sorted_points = [[] for _ in range(self.n_clusters)]
+            for x in X_train:
+                dists = euclidean(x, self.centroids)
+                centroid_idx = np.argmin(dists)
+                sorted_points[centroid_idx].append(x)
+            # Push current centroids to previous, reassign centroids as mean of the points belonging to them
+            prev_centroids = self.centroids
+            self.centroids = [np.mean(cluster, axis=0) for cluster in sorted_points]
+            for i, centroid in enumerate(self.centroids):
+                if np.isnan(centroid).any():  # Catch any np.nans, resulting from a centroid having no points
+                    self.centroids[i] = prev_centroids[i]
+            iteration += 1
 
-def isMacOS():
-    return os.name == 'posix' and platform.system() == "Darwin"
-
-
-def isLinux():
-    return os.name == 'posix' and platform.system() == "Linux"
-
-
-def python_exec():
-
-    if isWindows():
-        return os.path.join(sys.prefix, 'bin', 'python.exe')
-    elif isMacOS():
-
-        try:
-            # 2.92 and older
-            path = bpy.app.binary_path_python
-        except AttributeError:
-            # 2.93 and later
-            path = sys.executable
-        return os.path.abspath(path)
-    elif isLinux():
-        return os.path.join(sys.prefix, 'sys.prefix/bin', 'python')
-    else:
-        print("sorry, still not implemented for ",
-              os.name, " - ", platform.system)
-
-
-def installPackage(packageName):
-    python_exe = python_exec()
-    try:
-        subprocess.call([python_exe, "import ", packageName])
-    except:
-        # Upgrade pip if not latest version in ensurepip
-        subprocess.call([python_exe, "-m", "ensurepip", "--user", "--upgrade"])
-        # Install required packages
-        subprocess.call([python_exe, "-m", "pip", "install", packageName])
+    def evaluate(self, X):
+        centroids = []
+        centroid_idxs = []
+        for x in X:
+            dists = euclidean(x, self.centroids)
+            centroid_idx = np.argmin(dists)
+            centroids.append(self.centroids[centroid_idx])
+            centroid_idxs.append(centroid_idx)
+        return centroids, centroid_idxs
