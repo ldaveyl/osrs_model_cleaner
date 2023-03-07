@@ -4,6 +4,10 @@ repos:
   rev: 6.0.0
   hooks:
   - id: flake8
+    # E402 - module imports are not at top
+    # F821 - module reloads not recognized
+    # F722 - throws error for regex
+    args: ["--ignore=E402,F821,F722"]
 - repo: https://github.com/pre-commit/mirrors-autopep8
   rev: v2.0.1
   hooks:
