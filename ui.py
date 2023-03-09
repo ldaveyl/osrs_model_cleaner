@@ -19,8 +19,8 @@ class OSRSMC_PT_Panel_Load_Model(OSRSMC_PT_Panel, Panel):
         row = layout.row()
         col = row.column()
         col.operator("object.load_model", text="Load Model", icon="FILE")
-        col.prop_search(bpy.context.scene, "osrs_model",
-                        bpy.context.scene, "objects", icon="OBJECT_DATA")
+        col.prop_search(context.scene, "osrs_model",
+            context.scene, "objects", icon="OBJECT_DATA")
 
 
 class OSRSMC_PT_Panel_Merge_Materials(OSRSMC_PT_Panel, Panel):
@@ -29,8 +29,22 @@ class OSRSMC_PT_Panel_Merge_Materials(OSRSMC_PT_Panel, Panel):
 
     def draw(self, context):
         layout = self.layout
+
+        row = layout.row()
+        row.prop(context.scene, "find_optimal_k")
+
         row = layout.row()
         col = row.column()
+        col.prop(context.scene, "k")
+        if context.scene.find_optimal_k:
+            col.enabled = False
+
+        row = layout.row()
+        col = row.column()
+        col.prop(context.scene, "freq_weight")
+
+        row3 = layout.row()
+        col = row3.column()
         col.operator("object.merge_materials",
-                     text="Merge Materials", icon="RNDCURVE")
-        row.prop(context.scene, "max_n_clusters")
+            text="Merge Materials", icon="RNDCURVE")
+

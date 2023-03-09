@@ -1,11 +1,3 @@
-# ----------------------------------------------
-# Define Addon info
-# ----------------------------------------------
-
-import site
-from bpy.props import IntProperty, PointerProperty
-import bpy
-
 bl_info = {
     "name": "osrs_model_cleaner",
     "author": "Lucas Davey",
@@ -17,42 +9,51 @@ bl_info = {
     "category": "Generic"
 }
 
-# ----------------------------------------------
-# Import packages
-# ----------------------------------------------
-
-# If bpy is imported, then it is not the first import,
-# and ui and operator need to be reloaded
+# If bpy is already imported it is not the first import
+# and modules need to be reloaded
 if "bpy" in locals():
     import importlib
     importlib.reload(constants)
+    importlib.reload(functions)
     importlib.reload(operator)
     importlib.reload(ui)
 else:
     from . import constants
+    from . import functions
     from . import operator
     from . import ui
 
 
 # Add custom virtual environment
+import site
 site.addsitedir(r'C:\Users\lucas\Desktop\New folder\venv\Lib\site-packages')
 
-# ----------------------------------------------
-# Register panels, operators and properties
-# ----------------------------------------------
+import bpy
+
+from bpy.props import IntProperty, PointerProperty, BoolProperty
 
 classes = (
     ui.OSRSMC_PT_Panel_Load_Model,
     ui.OSRSMC_PT_Panel_Merge_Materials,
-    ui.OSRSMC_UL_Materials_List,
     operator.OSRSMC_OT_Load_Model,
     operator.OSRSMC_OT_Merge_Materials
 )
 
 props = [
-    ("osrs_model", PointerProperty(name="Target", type=bpy.types.Object)),
-    ('max_n_clusters', IntProperty(name='Max Clusters',
-     min=constants.min_clusters, default=20))
+    ("osrs_model", 
+     PointerProperty(name="target", 
+                     type=bpy.types.Object)),
+    ("freq_weight",
+     BoolProperty(name="frequency weight", 
+                  default=True)),
+    ("find_optimal_k",
+     BoolProperty(name="find optimal k", 
+                  default=True)),
+    ("k",
+     IntProperty(name="k", 
+                 min=constants.min_k,
+                 max=constants.max_k,
+                 default=5))
 ]
 
 
