@@ -9,6 +9,10 @@ from colorsys import rgb_to_hsv, hsv_to_rgb
 from . import constants
 from . import functions
 
+import sklearn
+# from sklearn.cluster import KMeans
+# from sklearn.metrics import silhouette_score
+
 class OSRSMC_OT_Load_Model(Operator, ImportHelper):
     bl_idname = "object.load_model"
     bl_label = "Load Model"
@@ -17,7 +21,7 @@ class OSRSMC_OT_Load_Model(Operator, ImportHelper):
     def execute(self, context):
         # Import .obj and select as OSRS model
         bpy.ops.import_scene.obj(filepath=self.filepath)
-        bpy.context.scene.osrs_model = bpy.context.selected_objects[0]
+        bpy.context.scene.target = bpy.context.selected_objects[0]
         return {"FINISHED"}
 
 
@@ -27,52 +31,41 @@ class OSRSMC_OT_Merge_Materials(Operator):
 
     def execute(self, context):
 
-        # Check that a model was selected
-        if not context.scene.osrs_model:
-            self.report({"ERROR"}, "Please select an OSRS Model")
+        # Check that a target was selected
+        if not context.scene.target:
+            self.report({"ERROR"}, "Please select a target")
             return {"CANCELLED"}
         
         # Check that model exists
-        if not context.scene.osrs_model.name in \
+        if not context.scene.target.name in \
           bpy.context.scene.objects.keys():
-            context.scene.osrs_model = None
+            context.scene.target = None
             self.report({"ERROR"}, "Object not found in scene")
             return {"CANCELLED"}
         
         # Create list of colors for each face
         hsv_lst = []
-        for p in context.scene.osrs_model.data.polygons:
-            slot = context.scene.osrs_model.material_slots[p.material_index]
+        for p in context.scene.target.data.polygons:
+            slot = context.scene.target.material_slots[p.material_index]
             # Subset to remove alpha
             rgb = list(slot.material.diffuse_color)[:-1]
             hsv = rgb_to_hsv(rgb[0], rgb[1], rgb[2])
             hsv_lst.append(hsv)
         hsv_lst = np.array(hsv_lst)
 
-        # Remove duplicates if not weighting by frequency
-        if not context.scene.freq_weight:
-            hsv_lst = np.unique(hsv_lst, axis=0)
-
         # Extract colors from model
-        hsv_lst = []
-        for mat in context.scene.osrs_model.data.materials:
-            rgb = list(mat.diffuse_color)[:-1]
-            hsv = rgb_to_hsv(rgb[0], rgb[1], rgb[2])
-            hsv_lst.append(hsv)
-        hsv_lst = np.array(hsv_lst)
+        # hsv_lst = []
+        # for mat in context.scene.target.data.materials:
+        #     rgb = list(mat.diffuse_color)[:-1]
+        #     hsv = rgb_to_hsv(rgb[0], rgb[1], rgb[2])
+        #     hsv_lst.append(hsv)
+        # hsv_lst = np.array(hsv_lst)
+        # print(len(hsv_lst))
 
         # Map polygons to materials
         polygon_to_material = {}
-        for p in context.scene.osrs_model.data.polygons:
+        for p in context.scene.target.data.polygons:
             polygon_to_material[p.index] = p.material_index
-
-        # Make sure that sklearn is correctly installed
-        try:
-            from sklearn.cluster import KMeans
-            from sklearn.metrics import silhouette_score
-        except ModuleNotFoundError as error:
-            self.report({"ERROR"}, f"Failed to import sklearn: {error}")
-            return {"CANCELLED"}
 
         # Cluster hsv values for different number of clusters
         cluster_dict = {}
@@ -105,6 +98,7 @@ class OSRSMC_OT_Merge_Materials(Operator):
             cluster_dict[k] = {}
             cluster_dict[k]["closest_hsv_lst"] = closest_hsv_lst
             cluster_dict[k]["cluster_labels"] = kmeans.labels_
+            cluster_dict[k]["cluster_centroids"] = kmeans.cluster_centers_
             cluster_dict[k]["silhouette"] = silhouette
 
         # Find optimal k
@@ -112,10 +106,10 @@ class OSRSMC_OT_Merge_Materials(Operator):
             context.scene.k = functions.find_optimal_k(cluster_dict)
 
         # Remove all materials
-        context.scene.osrs_model.data.materials.clear()
+        context.scene.target.data.materials.clear()
 
         # Create new materials
-        for i, hsv in enumerate(cluster_dict[context.scene.k ]["closest_hsv_lst"]):
+        for i, hsv in enumerate(cluster_dict[context.scene.k]["closest_hsv_lst"]):
             
             # Convert hsv to rgb and add alpha
             rgb = hsv_to_rgb(hsv[0], hsv[1], hsv[2])
@@ -133,27 +127,45 @@ class OSRSMC_OT_Merge_Materials(Operator):
             mat.diffuse_color = rgb
 
             # Add material
-            context.scene.osrs_model.data.materials.append(mat)
+            context.scene.target.data.materials.append(mat)
 
         # Assign new materials
-        for p in context.scene.osrs_model.data.polygons:
+        for p in context.scene.target.data.polygons:
             original_mat_idx = polygon_to_material[p.index]
-            new_mat_idx = cluster_dict[context.scene.k ]["cluster_labels"][original_mat_idx]
+            print(p.index, polygon_to_material[p.index])
+            new_mat_idx = cluster_dict[context.scene.k]["cluster_labels"][original_mat_idx]
             p.material_index = new_mat_idx
+
+
+        print(len(cluster_dict[context.scene.k]["cluster_labels"]))
+        
+        ######################################
+        ## DEV
+        ######################################
+        
+        import plotly
+        import plotly.express as px
+        import pandas as pd
+
+        data_df = pd.DataFrame(data=hsv_lst, columns=["h", "s", "v"])
+        data_df["type"] = "data"
+        data_df["label"] = cluster_dict[context.scene.k]["cluster_labels"]
+
+        centroids_df = pd.DataFrame(cluster_dict[context.scene.k]["cluster_centroids"], columns=["h", "s", "v"])
+        centroids_df["type"] = "centroid"
+        centroids_df["label"] = range(context.scene.k)
+
+        df = pd.concat([data_df, centroids_df]).reset_index(drop=True)
+        df["col_hsv"] = list(zip(df["h"], df["s"], df["v"]))
+        df["col_rgb"] = df["col_hsv"].apply(lambda x: hsv_to_rgb(x[0], x[1], x[2]))
+
+        fig = px.scatter_3d(df, x="h", y="s", z="v", symbol="type")
+        fig.update_traces(marker=dict(color=df["label"]))
+        # plotly.offline.plot(fig, filename='C:\\Users\\lucas\\Documents\\MyBlenderStuff\\myplot.html')
 
         print("optimal_k:", context.scene.k )
 
         # TODO: optimize clustering -> too many clusters are missed ...
         # Perhaps add way to give more weight to all clusters -> frequency based? 
-        # Low priority: Figure out how to assign colours in object mode (i.e. the preview)
-    
-        # print(context.scene.osrs_model.data.materials)
-
-        # for i in range(len(context.scene.osrs_model.material_slots)):
-        #     context.scene.osrs_model.activate_material_index = i
-        #     break
-
-        # for slot in context.scene.osrs_model.material_slots:
-            # print(slot)
 
         return {"FINISHED"}

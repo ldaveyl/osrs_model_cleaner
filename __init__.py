@@ -23,12 +23,19 @@ else:
     from . import operator
     from . import ui
 
+import bpy
+
 
 # Add custom virtual environment
 import site
 site.addsitedir(r'C:\Users\lucas\Desktop\New folder\venv\Lib\site-packages')
 
-import bpy
+
+# Check if packages in requirements.txt are installed
+# TODO: parse
+# for package in ["numpy", "pandas", "sklearn"]:
+#     if not importlib.util.find_spec(package):
+#         raise ModuleNotFoundError(f"Module {package} not found!")
 
 from bpy.props import IntProperty, PointerProperty, BoolProperty
 
@@ -40,22 +47,21 @@ classes = (
 )
 
 props = [
-    ("osrs_model", 
-     PointerProperty(name="target", 
-                     type=bpy.types.Object)),
-    ("freq_weight",
-     BoolProperty(name="frequency weight", 
-                  default=True)),
-    ("find_optimal_k",
-     BoolProperty(name="find optimal k", 
-                  default=True)),
-    ("k",
-     IntProperty(name="k", 
-                 min=constants.min_k,
-                 max=constants.max_k,
-                 default=5))
+    ("target", PointerProperty(
+        name="target",
+        type=bpy.types.Object
+    )),
+    ("find_optimal_k", BoolProperty(
+        name="find optimal k",
+        default=True
+    )),
+    ("k", IntProperty(
+        name="k",
+        min=constants.min_k,
+        max=constants.max_k,
+        default=5
+    ))
 ]
-
 
 def register():
     for c in classes:
@@ -71,3 +77,18 @@ def unregister():
 
     for (prop_name, _) in props:
         delattr(bpy.types.Scene, prop_name)
+
+    
+# # Define addon directory
+# for module in addon_utils.modules():
+#     if module.bl_info["name"] == bl_info["name"]:
+#         osrsmc_path = os.path.dirname(module.__file__)
+
+# # Check if packages in requirements.txt are installed
+# # Map package install name to import name with pkg_resources
+# f = open(os.path.join(osrsmc_path, "requirements.txt"), "r")
+# for line in f.readlines():
+#     install_name = line.strip().split("==")[0]
+    
+#     if not importlib.util.find_spec(import_name):
+#         raise ModuleNotFoundError(f"Module {import_name} not found!")
